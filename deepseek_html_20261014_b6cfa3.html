@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zombie Attack — Ultimate</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+body{overflow:hidden;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#000;color:#fff}
+#renderCanvas{width:100%;height:100%;display:block;outline:none;touch-action:none}
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;padding:15px}
+.hud-top{display:flex;justify-content:space-between;align-items:flex-start;text-shadow:1px 1px 3px #000;font-size:17px;font-weight:bold}
+.hud-top-left,.hud-top-right{display:flex;flex-direction:column;gap:4px}
+.hud-top-right{text-align:right}
+.hud-bottom{position:absolute;bottom:15px;left:15px;right:15px;display:flex;justify-content:space-between;align-items:flex-end;font-size:16px;font-weight:bold;text-shadow:1px 1px 3px #000}
+.weapon-info{display:flex;flex-direction:column;gap:2px}
+.weapon-info .wname{font-size:22px;color:#f1c40f}
+.weapon-info .ammo{font-size:28px}
+.weapon-info .ammo.low{color:#e74c3c}
+.crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:22px;height:22px;pointer-events:none}
+.crosshair::before,.crosshair::after{content:'';position:absolute;background:rgba(255,255,255,.9);box-shadow:0 0 3px rgba(0,0,0,.8)}
+.crosshair::before{width:2px;height:100%;left:50%;transform:translateX(-50%)}
+.crosshair::after{width:100%;height:2px;top:50%;transform:translateY(-50%)}
+.crosshair.hit{background:rgba(231,76,60,.5)}
+.damage-flash{position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle,rgba(255,0,0,0) 30%,rgba(255,0,0,.5) 100%);pointer-events:none;opacity:0;transition:opacity .15s}
+.damage-flash.active{opacity:1}
+.overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);display:none;justify-content:center;align-items:center;flex-direction:column;z-index:10;pointer-events:auto;overflow-y:auto;padding:20px}
+.overlay.active{display:flex}
+.overlay h1{font-size:48px;margin-bottom:10px;color:#e74c3c;text-shadow:2px 2px 8px #000}
+.overlay h2{font-size:28px;margin-bottom:20px;color:#f1c40f}
+.overlay p{font-size:16px;margin-bottom:12px;text-align:center;max-width:700px;line-height:1.5}
+.btn{padding:12px 32px;font-size:18px;font-weight:bold;border:none;border-radius:8px;cursor:pointer;margin:6px;transition:transform .1s,background .2s;pointer-events:auto}
+.btn:hover{transform:scale(1.05)}.btn:active{transform:scale(.95)}
+.btn-primary{background:#e74c3c;color:#fff}.btn-primary:hover{background:#c0392b}
+.btn-secondary{background:#3498db;color:#fff}.btn-secondary:hover{background:#2980b9}
+.btn-success{background:#2ecc71;color:#fff}.btn-success:hover{background:#27ae60}
+.btn-dark{background:#333;color:#fff}.btn-dark:hover{background:#444}
+.btn:disabled{background:#555;color:#999;cursor:not-allowed;transform:none}
+#homeOverlay{background:linear-gradient(135deg,#0a0a0a 0%,#1a0a0a 50%,#0a0a0a 100%);z-index:15}
+.home-title{font-size:72px;font-weight:900;color:#e74c3c;text-shadow:0 0 30px rgba(231,76,60,.8),0 0 60px rgba(231,76,60,.4),4px 4px 0 #000;letter-spacing:4px;margin-bottom:5px;animation:titlePulse 2s ease-in-out infinite}
+@keyframes titlePulse{0%,100%{text-shadow:0 0 30px rgba(231,76,60,.8),0 0 60px rgba(231,76,60,.4),4px 4px 0 #000}50%{text-shadow:0 0 50px rgba(231,76,60,1),0 0 100px rgba(231,76,60,.6),4px 4px 0 #000}}
+.home-subtitle{font-size:20px;color:#aaa;margin-bottom:30px;letter-spacing:2px;text-transform:uppercase}
+.home-stats{display:flex;gap:35px;margin-bottom:30px;font-size:15px;color:#888;flex-wrap:wrap;justify-content:center}
+.home-stats span{color:#f1c40f;font-weight:bold}
+.home-buttons{display:flex;flex-direction:column;gap:10px;align-items:center}
+.home-buttons .btn{width:340px;font-size:20px;padding:14px 40px}
+.home-controls{margin-top:25px;font-size:13px;color:#666;text-align:center;line-height:2}
+kbd{background:#222;border:1px solid #444;border-radius:4px;padding:2px 8px;font-family:monospace;color:#ccc;margin:0 2px}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;max-width:900px;width:95%;margin-bottom:20px}
+.shop-item{background:#1a1a1a;border:2px solid #333;border-radius:10px;padding:14px;text-align:center;transition:border-color .2s,transform .2s}
+.shop-item:hover{border-color:#f1c40f;transform:translateY(-2px)}
+.shop-item h3{font-size:18px;color:#f1c40f;margin-bottom:6px}
+.shop-item .desc{font-size:13px;color:#aaa;margin-bottom:8px;min-height:34px}
+.shop-item .cost{font-size:17px;color:#2ecc71;font-weight:bold;margin-bottom:8px}
+.shop-tabs{display:flex;gap:8px;margin-bottom:15px}
+.shop-tab{padding:8px 20px;background:#222;border:2px solid #333;border-radius:6px;cursor:pointer;font-weight:bold;color:#aaa}
+.shop-tab.active{background:#e74c3c;color:#fff;border-color:#e74c3c}
+.mission-list{max-width:600px;width:90%;margin-bottom:20px}
+.mission-item{background:#1a1a1a;border:2px solid #333;border-radius:8px;padding:12px 18px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.mission-item .info{text-align:left}
+.mission-item .info h3{font-size:16px;color:#fff}
+.mission-item .info .reward{font-size:13px;color:#f1c40f}
+.mission-item .progress{font-size:15px;color:#3498db;font-weight:bold}
+#notification{position:absolute;top:110px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#f1c40f;padding:12px 28px;border-radius:8px;font-size:18px;font-weight:bold;pointer-events:none;opacity:0;transition:opacity .3s;z-index:20;border:2px solid #f1c40f;text-align:center;max-width:80%}
+#notification.active{opacity:1}
+.hit-marker{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;color:#e74c3c;pointer-events:none;opacity:0;transition:opacity .1s;font-weight:bold;text-shadow:0 0 6px #000}
+.hit-marker.active{opacity:1}
+.hit-marker.headshot{color:#f1c40f;font-size:34px}
+.wave-banner{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%);font-size:64px;font-weight:bold;color:#e74c3c;text-shadow:3px 3px 12px #000;pointer-events:none;opacity:0;transition:opacity .5s;text-align:center;letter-spacing:3px}
+.wave-banner.active{opacity:1}
+.wave-banner .sub{display:block;font-size:24px;color:#f1c40f;margin-top:8px}
+#killFeed{position:absolute;top:90px;right:15px;width:280px;text-align:right;pointer-events:none;font-size:14px}
+.kill-feed-item{background:rgba(0,0,0,.6);padding:6px 12px;margin-bottom:5px;border-radius:5px;border-right:3px solid #e74c3c;animation:feedIn .3s ease}
+@keyframes feedIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+.kill-feed-item .name{color:#f1c40f;font-weight:bold}
+.kill-feed-item.headshot{border-right-color:#f1c40f}
+#minimap{position:absolute;bottom:15px;right:15px;width:180px;height:180px;background:rgba(0,0,0,.7);border:2px solid #444;border-radius:50%;overflow:hidden;pointer-events:none}
+#minimapCanvas{width:100%;height:100%}
+#comboMeter{position:absolute;top:50%;right:30px;transform:translateY(-50%);text-align:right;pointer-events:none;opacity:0;transition:opacity .3s}
+#comboMeter.active{opacity:1}
+#comboMeter .combo-num{font-size:56px;font-weight:900;color:#f1c40f;text-shadow:0 0 20px rgba(241,196,15,.8),3px 3px 0 #000;line-height:1}
+#comboMeter .combo-label{font-size:16px;color:#e74c3c;font-weight:bold;letter-spacing:2px}
+#comboMeter .combo-bar{width:180px;height:6px;background:rgba(0,0,0,.6);border-radius:3px;margin-top:8px;overflow:hidden;margin-left:auto}
+#comboMeter .combo-fill{height:100%;background:linear-gradient(90deg,#f1c40f,#e74c3c);transition:width .1s linear}
+#staminaBar{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);width:200px;height:8px;background:rgba(0,0,0,.6);border-radius:4px;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .3s}
+#staminaBar.active{opacity:1}
+#staminaFill{height:100%;background:linear-gradient(90deg,#3498db,#2ecc71);width:100%}
+#damageNumbers{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
+.dmg-num{position:absolute;font-weight:900;text-shadow:2px 2px 4px #000;animation:dmgFloat 1s ease-out forwards;font-size:22px}
+.dmg-num.normal{color:#fff}.dmg-num.headshot{color:#f1c40f;font-size:30px}.dmg-num.crit{color:#e74c3c;font-size:26px}
+@keyframes dmgFloat{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.3)}}
+#fpsCounter{position:absolute;top:15px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:4px 12px;border-radius:6px;font-size:13px;font-family:monospace;color:#2ecc71;pointer-events:none;opacity:0;transition:opacity .2s}
+#fpsCounter.active{opacity:1}
+#pauseOverlay,#settingsOverlay,#achievementsOverlay{z-index:20}
+#settingsOverlay .setting-row{display:flex;align-items:center;justify-content:space-between;width:400px;margin:12px 0;padding:12px 16px;background:#1a1a1a;border-radius:8px}
+#settingsOverlay .setting-row label{font-size:16px}
+#settingsOverlay input[type=range]{width:200px}
+#settingsOverlay .val{color:#f1c40f;font-weight:bold;min-width:50px;text-align:right}
+.weapon-slot{display:inline-block;padding:6px 12px;margin:0 4px;background:rgba(0,0,0,.5);border:2px solid #333;border-radius:6px;font-size:14px;color:#666;font-weight:bold;transition:all .2s}
+.weapon-slot.active{border-color:#f1c40f;color:#f1c40f;background:rgba(241,196,15,.15)}
+#weaponSlots{position:absolute;bottom:80px;left:15px;pointer-events:none}
+.wave-mod{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(231,76,60,.9);padding:6px 20px;border-radius:20px;font-size:14px;font-weight:bold;letter-spacing:2px;opacity:0;transition:opacity .3s;pointer-events:none}
+.wave-mod.active{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+
+<div id="hud">
+  <div class="hud-top">
+    <div class="hud-top-left">
+      <span>Wave <span id="hudWave">0</span> · Zombies <span id="hudZombies">0</span></span>
+      <span>Kills <span id="hudKills">0</span> · Combo x<span id="hudCombo">1</span></span>
+    </div>
+    <div class="hud-top-right">
+      <span>Cash $<span id="hudCash">0</span></span>
+      <span>Level <span id="hudLevel">1</span> · <span id="hudExp">0</span>/<span id="hudExpNext">100</span> EXP</span>
+      <span>HP <span id="hudHp">100</span>/<span id="hudMaxHp">100</span></span>
+    </div>
+  </div>
+  <div class="hud-bottom">
+    <div class="weapon-info">
+      <span class="wname" id="hudWeapon">Pistol</span>
+      <span class="ammo" id="hudAmmo">12 / 12</span>
+    </div>
+    <div style="text-align:right;font-size:14px;color:#aaa" id="hudStats">
+      DMG <span id="hudDamage">10</span> · RATE <span id="hudFireRate">5</span>/s
+    </div>
+  </div>
+  <div id="weaponSlots">
+    <span class="weapon-slot active" data-w="0">1 PISTOL</span>
+    <span class="weapon-slot" data-w="1">2 SHOTGUN</span>
+    <span class="weapon-slot" data-w="2">3 RIFLE</span>
+    <span class="weapon-slot" data-w="3">4 SNIPER</span>
+  </div>
+</div>
+
+<div class="crosshair"></div>
+<div class="hit-marker" id="hitMarker">✕</div>
+<div class="damage-flash" id="damageFlash"></div>
+<div class="wave-banner" id="waveBanner"></div>
+<div id="notification"></div>
+<div id="killFeed"></div>
+<div id="damageNumbers"></div>
+<div id="comboMeter"><div class="combo-num" id="comboNum">0</div><div class="combo-label">COMBO</div><div class="combo-bar"><div class="combo-fill" id="comboFill" style="width:100%"></div></div></div>
+<div id="staminaBar"><div id="staminaFill"></div></div>
+<div id="fpsCounter">FPS <span id="fps">60</span></div>
+<div class="wave-mod" id="waveMod">BLOOD MOON</div>
+<div id="minimap"><canvas id="minimapCanvas" width="180" height="180"></canvas></div>
+
+<div class="overlay active" id="homeOverlay">
+  <h1 class="home-title">ZOMBIE ATTACK</h1>
+  <p class="home-subtitle">ULTIMATE EDITION</p>
+  <div class="home-stats">
+    <div>Level <span id="homeLevel">1</span></div>
+    <div>Cash $<span id="homeCash">0</span></div>
+    <div>Total Kills <span id="homeKills">0</span></div>
+    <div>Best Wave <span id="homeBest">0</span></div>
+  </div>
+  <div class="home-buttons">
+    <button class="btn btn-primary" id="btnPlayEasy">▶ PLAY — EASY</button>
+    <button class="btn btn-secondary" id="btnPlayHard" disabled>HARD MODE (Lv.50)</button>
+    <button class="btn btn-success" id="btnHomeMissions">MISSIONS</button>
+    <button class="btn btn-dark" id="btnAchievements">ACHIEVEMENTS</button>
+    <button class="btn btn-dark" id="btnSettings">SETTINGS</button>
+  </div>
+  <div class="home-controls">
+    <kbd>WASD</kbd> Move · <kbd>Mouse</kbd> Look · <kbd>Click</kbd> Shoot · <kbd>R</kbd> Reload · <kbd>1-4</kbd> Weapons · <kbd>Shift</kbd> Sprint · <kbd>Ctrl</kbd> Crouch · <kbd>Space</kbd> Jump · <kbd>Esc</kbd> Pause
+  </div>
+</div>
+
+<div class="overlay" id="shopOverlay">
+  <h2>WAVE <span id="shopWave">0</span> COMPLETE</h2>
+  <p>Cash: $<span id="shopCash">0</span></p>
+  <div class="shop-tabs">
+    <div class="shop-tab active" data-tab="upgrades">Upgrades</div>
+    <div class="shop-tab" data-tab="weapons">Weapons</div>
+    <div class="shop-tab" data-tab="perks">Perks</div>
+    <div class="shop-tab" data-tab="heal">Heal</div>
+  </div>
+  <div class="shop-grid" id="shopGrid"></div>
+  <div>
+    <button class="btn btn-success" id="btnNextWave">START NEXT WAVE ▶</button>
+    <button class="btn btn-dark" id="btnMissionsShop">Missions</button>
+  </div>
+</div>
+
+<div class="overlay" id="missionOverlay">
+  <h2>MISSIONS</h2>
+  <div class="mission-list" id="missionList"></div>
+  <button class="btn btn-secondary" id="btnCloseMissions">Close</button>
+</div>
+
+<div class="overlay" id="achievementsOverlay">
+  <h2>ACHIEVEMENTS</h2>
+  <div class="mission-list" id="achList"></div>
+  <button class="btn btn-secondary" id="btnCloseAch">Close</button>
+</div>
+
+<div class="overlay" id="settingsOverlay">
+  <h2>SETTINGS</h2>
+  <div class="setting-row"><label>Mouse Sensitivity</label><input type="range" id="setSens" min="100" max="2000" value="400" step="50"><span class="val" id="valSens">400</span></div>
+  <div class="setting-row"><label>FOV</label><input type="range" id="setFov" min="60" max="120" value="90" step="5"><span class="val" id="valFov">90</span></div>
+  <div class="setting-row"><label>Show FPS</label><input type="checkbox" id="setFps"><span class="val"></span></div>
+  <div class="setting-row"><label>Screen Shake</label><input type="checkbox" id="setShake" checked><span class="val"></span></div>
+  <button class="btn btn-secondary" id="btnCloseSettings" style="margin-top:20px">Close</button>
+</div>
+
+<div class="overlay" id="pauseOverlay">
+  <h2>PAUSED</h2>
+  <p>Wave <span id="pauseWave">0</span> · Kills <span id="pauseKills">0</span></p>
+  <button class="btn btn-primary" id="btnResume">Resume</button>
+  <button class="btn btn-secondary" id="btnPauseSettings">Settings</button>
+  <button class="btn btn-dark" id="btnQuit">Quit to Menu</button>
+</div>
+
+<div class="overlay" id="gameOverOverlay">
+  <h1>YOU DIED</h1>
+  <p>You survived <span id="goWaves">0</span> waves · Killed <span id="goKills">0</span> zombies</p>
+  <p>Cash earned: $<span id="goCash">0</span> · EXP: <span id="goExp">0</span></p>
+  <button class="btn btn-primary" id="btnRestart">TRY AGAIN</button>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script>
+// ================================================================
+//  ZOMBIE ATTACK — ULTIMATE EDITION
+// ================================================================
+
+// ---------- SETTINGS ----------
+const settings = {
+  sensitivity: 400,   // lower = more sensitive
+  fov: 90,
+  showFps: false,
+  screenShake: true,
+};
+try {
+  const s = JSON.parse(localStorage.getItem('zw_settings') || '{}');
+  Object.assign(settings, s);
+} catch(e){}
+function saveSettings(){ try{localStorage.setItem('zw_settings', JSON.stringify(settings));}catch(e){} }
+
+// ---------- WEAPONS ----------
+const WEAPONS = [
+  { id:'pistol',  name:'Pistol',  damage: 15, fireRate: 5,  mag: 12, reserve: 96,  reloadTime: 1.2, spread: 0.005, pellets: 1, auto: false, unlocked: true,  cost: 0,    range: 200, hsMult: 2.0 },
+  { id:'shotgun', name:'Shotgun', damage: 22, fireRate: 1.3,mag: 6,  reserve: 48,  reloadTime: 2.4, spread: 0.09,  pellets: 8, auto: false, unlocked: false, cost: 1500, range: 60,  hsMult: 1.5 },
+  { id:'rifle',   name:'Rifle',   damage: 25, fireRate: 9,  mag: 30, reserve: 180, reloadTime: 1.8, spread: 0.03,  pellets: 1, auto: true,  unlocked: false, cost: 2500, range: 250, hsMult: 2.0 },
+  { id:'sniper',  name:'Sniper',  damage: 150,fireRate: 0.8,mag: 5,  reserve: 30,  reloadTime: 2.8, spread: 0.001, pellets: 1, auto: false, unlocked: false, cost: 4000, range: 400, hsMult: 3.0 },
+];
+
+// ---------- STATE ----------
+const state = {
+  running:false, paused:false, wave:0, cash:0, exp:0, level:1, expNext:100,
+  hp:100, maxHp:100, kills:0, totalKills:0, bestWave:0,
+  difficulty:'easy', zombies:[], waveInProgress:false, betweenWaves:false,
+  missions:[], upgrades:{damageLvl:1, fireRateLvl:1, hpLvl:1, speedLvl:1},
+  perks:{ juggernaut:0, speedCola:0, doubleTap:0, quickRevive:0 },
+  weaponsUnlocked:{ pistol:true, shotgun:false, rifle:false, sniper:false },
+  currentWeapon:0,
+  ammo:{ pistol:{mag:12,reserve:96}, shotgun:{mag:6,reserve:48}, rifle:{mag:30,reserve:180}, sniper:{mag:5,reserve:30} },
+  reloading:false, reloadEnd:0,
+  lastShot:0, shooting:false,
+  playerSpeed:0.40,
+  stamina:100, sprinting:false, crouching:false, jumping:false,
+  velocityY:0, playerY:1.7, eyeHeight:1.7,
+  combo:0, comboTimer:0, comboTimerMax:3,
+  killStreak:0, achievements:{},
+  waveModifier:null,
+  activeTab:'upgrades',
+  storageKey:'zombieWaveSurvival_v3',
+  damageMultiplier:1, fireRateMultiplier:1, cashMultiplier:1,
+  baseDamage:10,
+};
+
+// ---------- PERSISTENCE ----------
+function saveProgress(){
+  const d = {
+    cash:state.cash, exp:state.exp, level:state.level, expNext:state.expNext,
+    totalKills:state.totalKills, bestWave:state.bestWave,
+    upgrades:state.upgrades, perks:state.perks,
+    weaponsUnlocked:state.weaponsUnlocked, ammo:state.ammo,
+    difficulty:state.difficulty, missions:state.missions, achievements:state.achievements,
+  };
+  try{localStorage.setItem(state.storageKey, JSON.stringify(d));}catch(e){}
+}
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(state.storageKey);
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    state.cash = d.cash ?? 0; state.exp = d.exp ?? 0; state.level = d.level ?? 1;
+    state.expNext = d.expNext ?? 100; state.totalKills = d.totalKills ?? 0;
+    state.bestWave = d.bestWave ?? 0;
+    state.upgrades = d.upgrades ?? state.upgrades;
+    state.perks = d.perks ?? state.perks;
+    state.weaponsUnlocked = d.weaponsUnlocked ?? state.weaponsUnlocked;
+    state.ammo = d.ammo ?? state.ammo;
+    state.difficulty = d.difficulty ?? 'easy';
+    state.missions = d.missions ?? [];
+    state.achievements = d.achievements ?? {};
+    state.hp = state.maxHp;
+  }catch(e){}
+}
+
+// ---------- MISSIONS ----------
+const MISSION_TEMPLATES = [
+  { id:'kill_10', name:'Kill 10 Zombies', target:10, type:'kills', cash:150, exp:50 },
+  { id:'kill_25', name:'Kill 25 Zombies', target:25, type:'kills', cash:350, exp:120 },
+  { id:'kill_50', name:'Kill 50 Zombies', target:50, type:'kills', cash:700, exp:250 },
+  { id:'kill_100', name:'Kill 100 Zombies', target:100, type:'kills', cash:1500, exp:500 },
+  { id:'reach_wave_5', name:'Reach Wave 5', target:5, type:'wave', cash:200, exp:80 },
+  { id:'reach_wave_10', name:'Reach Wave 10', target:10, type:'wave', cash:500, exp:200 },
+  { id:'reach_wave_15', name:'Reach Wave 15', target:15, type:'wave', cash:800, exp:350 },
+  { id:'reach_wave_20', name:'Reach Wave 20', target:20, type:'wave', cash:1200, exp:500 },
+  { id:'boss_kill', name:'Defeat 1 Boss', target:1, type:'boss', cash:1000, exp:400 },
+  { id:'boss_kill_3', name:'Defeat 3 Bosses', target:3, type:'boss', cash:3000, exp:1200 },
+  { id:'headshot_20', name:'Land 20 Headshots', target:20, type:'headshot', cash:600, exp:200 },
+];
+function initMissions(){
+  if(state.missions.length===0){
+    const sh = [...MISSION_TEMPLATES].sort(()=>Math.random()-0.5);
+    state.missions = sh.slice(0,3).map(m=>({...m, progress:0, completed:false}));
+  }
+}
+function updateMissionProgress(type, value=1){
+  let changed=false;
+  state.missions.forEach(m=>{
+    if(m.completed||m.type!==type) return;
+    if(type==='kills'||type==='boss'||type==='headshot') m.progress+=value;
+    else if(type==='wave') m.progress=Math.max(m.progress, value);
+    if(m.progress>=m.target){
+      m.completed=true; state.cash+=m.cash; addExp(m.exp);
+      showNotification(`✅ ${m.name} — +$${m.cash} +${m.exp} EXP`);
+      changed=true;
+    }
+  });
+  if(changed){ saveProgress(); renderMissions(); }
+}
+function renderMissions(){
+  const list=document.getElementById('missionList'); list.innerHTML='';
+  state.missions.forEach(m=>{
+    const d=document.createElement('div'); d.className='mission-item';
+    d.innerHTML=`<div class="info"><h3>${m.name}</h3><div class="reward">$${m.cash} + ${m.exp} EXP</div></div><div class="progress">${m.completed?'✅':m.progress+'/'+m.target}</div>`;
+    list.appendChild(d);
+  });
+}
+
+// ---------- ACHIEVEMENTS ----------
+const ACHIEVEMENTS = [
+  { id:'first_blood', name:'First Blood', desc:'Kill 1 zombie', check:(s)=>s.totalKills>=1 },
+  { id:'slayer_100', name:'Slayer', desc:'Kill 100 zombies', check:(s)=>s.totalKills>=100 },
+  { id:'slayer_1000', name:'Reaper', desc:'Kill 1000 zombies', check:(s)=>s.totalKills>=1000 },
+  { id:'wave_10', name:'Survivor', desc:'Reach Wave 10', check:(s)=>s.bestWave>=10 },
+  { id:'wave_25', name:'Veteran', desc:'Reach Wave 25', check:(s)=>s.bestWave>=25 },
+  { id:'wave_50', name:'Legend', desc:'Reach Wave 50', check:(s)=>s.bestWave>=50 },
+  { id:'rich', name:'Loaded', desc:'Earn $10,000', check:(s)=>s.cash>=10000 },
+  { id:'level_25', name:'Rising Star', desc:'Reach Level 25', check:(s)=>s.level>=25 },
+];
+function checkAchievements(){
+  ACHIEVEMENTS.forEach(a=>{
+    if(state.achievements[a.id]) return;
+    if(a.check(state)){
+      state.achievements[a.id]=true;
+      showNotification(`🏆 Achievement: ${a.name}`, 4000);
+    }
+  });
+}
+function renderAchievements(){
+  const list=document.getElementById('achList'); list.innerHTML='';
+  ACHIEVEMENTS.forEach(a=>{
+    const unlocked=!!state.achievements[a.id];
+    const d=document.createElement('div'); d.className='mission-item';
+    d.innerHTML=`<div class="info"><h3>${unlocked?'🏆':'🔒'} ${a.name}</h3><div class="reward">${a.desc}</div></div><div class="progress">${unlocked?'✅':'—'}</div>`;
+    list.appendChild(d);
+  });
+}
+
+// ---------- EXP/LEVEL ----------
+function addExp(amount){
+  state.exp += amount;
+  while(state.exp>=state.expNext){
+    state.exp-=state.expNext; state.level++;
+    state.expNext = Math.floor(state.expNext*1.4);
+    showNotification(`⬆️ Level Up! You are now Level ${state.level}`);
+  }
+  updateHUD(); checkAchievements();
+}
+
+// ---------- NOTIFICATION ----------
+let notifTimeout=null;
+function showNotification(msg, dur=2500){
+  const el=document.getElementById('notification');
+  el.textContent=msg; el.classList.add('active');
+  clearTimeout(notifTimeout);
+  notifTimeout=setTimeout(()=>el.classList.remove('active'), dur);
+}
+function showWaveBanner(text, sub){
+  const el=document.getElementById('waveBanner');
+  el.innerHTML = text + (sub?`<span class="sub">${sub}</span>`:'');
+  el.classList.add('active');
+  setTimeout(()=>el.classList.remove('active'), 2200);
+}
+
+// ---------- KILL FEED ----------
+function addKillFeed(text, headshot=false){
+  const feed=document.getElementById('killFeed');
+  const d=document.createElement('div');
+  d.className='kill-feed-item'+(headshot?' headshot':'');
+  d.innerHTML=`<span class="name">YOU</span> ${text}`;
+  feed.insertBefore(d, feed.firstChild);
+  setTimeout(()=>{ if(d.parentNode) d.parentNode.removeChild(d); }, 4000);
+  while(feed.children.length>6) feed.removeChild(feed.lastChild);
+}
+
+// ---------- DAMAGE NUMBERS ----------
+function spawnDamageNumber(worldPos, amount, type='normal'){
+  const proj = BABYLON.Vector3.Project(
+    worldPos,
+    BABYLON.Matrix.Identity(),
+    scene.getTransformMatrix(),
+    camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
+  );
+  const d=document.createElement('div');
+  d.className='dmg-num '+type;
+  d.textContent = (type==='headshot'?'✦':'') + Math.round(amount);
+  d.style.left = proj.x+'px';
+  d.style.top = proj.y+'px';
+  d.style.transform = 'translate(-50%,-50%)';
+  document.getElementById('damageNumbers').appendChild(d);
+  setTimeout(()=>{ if(d.parentNode) d.parentNode.removeChild(d); }, 1000);
+}
+
+// ---------- HUD ----------
+function updateHUD(){
+  document.getElementById('hudWave').textContent=state.wave;
+  document.getElementById('hudZombies').textContent=state.zombies.length;
+  document.getElementById('hudCash').textContent=state.cash;
+  document.getElementById('hudLevel').textContent=state.level;
+  document.getElementById('hudExp').textContent=state.exp;
+  document.getElementById('hudExpNext').textContent=state.expNext;
+  document.getElementById('hudHp').textContent=Math.max(0,Math.round(state.hp));
+  document.getElementById('hudMaxHp').textContent=Math.round(state.maxHp);
+  document.getElementById('hudKills').textContent=state.kills;
+  document.getElementById('hudCombo').textContent=Math.max(1,Math.floor(1+state.combo*0.1));
+  const w=WEAPONS[state.currentWeapon];
+  const ammo=state.ammo[w.id];
+  document.getElementById('hudWeapon').textContent=w.name;
+  const ammoEl=document.getElementById('hudAmmo');
+  ammoEl.textContent=`${ammo.mag} / ${ammo.reserve}`;
+  ammoEl.className='ammo'+(ammo.mag<=w.mag*0.25?' low':'');
+  document.getElementById('hudDamage').textContent=Math.round(state.baseDamage*state.damageMultiplier);
+  document.getElementById('hudFireRate').textContent=(w.fireRate*state.fireRateMultiplier).toFixed(1);
+  document.querySelectorAll('.weapon-slot').forEach(el=>{
+    el.classList.toggle('active', parseInt(el.dataset.w)===state.currentWeapon);
+    if(!state.weaponsUnlocked[WEAPONS[parseInt(el.dataset.w)].id]) el.style.opacity=0.35;
+    else el.style.opacity=1;
+  });
+}
+
+// ---------- BABYLON SETUP ----------
+const canvas=document.getElementById('renderCanvas');
+const engine=new BABYLON.Engine(canvas, true, {preserveDrawingBuffer:true, stencil:true, antialias:true});
+const scene=new BABYLON.Scene(engine);
+scene.clearColor=new BABYLON.Color4(0.02,0.02,0.05,1);
+scene.fogMode=BABYLON.Scene.FOGMODE_EXP2;
+scene.fogColor=new BABYLON.Color3(0.05,0.05,0.1);
+scene.fogDensity=0.006;
+
+// Environment / IBL
+const envTexture=BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/environments/environmentSpecular.env", scene);
+scene.environmentTexture=envTexture;
+scene.environmentIntensity=0.4;
+
+// Camera — highly sensitive
+const camera=new BABYLON.UniversalCamera('fpsCam', new BABYLON.Vector3(0,1.7,0), scene);
+camera.attachControl(canvas, true);
+camera.speed=0;
+camera.inertia=0;
+camera.angularSensibilityX = settings.sensitivity;
+camera.angularSensibilityY = settings.sensitivity;
+camera.minZ=0.05;
+camera.maxZ=1000;
+camera.fov = settings.fov * Math.PI/180;
+
+// Input
+const keys={};
+window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true; });
+window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+
+// Lighting
+const hemi=new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0,1,0), scene);
+hemi.intensity=0.25; hemi.groundColor=new BABYLON.Color3(0.05,0.05,0.08);
+const dir=new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(-1,-2,-1), scene);
+dir.position=new BABYLON.Vector3(80,140,80); dir.intensity=0.7;
+dir.diffuse=new BABYLON.Color3(0.75,0.8,1.0);
+const shadowGen=new BABYLON.ShadowGenerator(2048, dir);
+shadowGen.useBlurExponentialShadowMap=true; shadowGen.blurKernel=32;
+shadowGen.darkness=0.35;
+
+// Post-processing
+const pipeline=new BABYLON.DefaultRenderingPipeline("default", true, scene, [camera]);
+pipeline.bloomEnabled=true; pipeline.bloomThreshold=0.7; pipeline.bloomWeight=0.45; pipeline.bloomKernel=64;
+pipeline.fxaaEnabled=true;
+pipeline.chromaticAberrationEnabled=true;
+pipeline.chromaticAberration.aberrationAmount=8;
+pipeline.grainEnabled=true;
+pipeline.grain.intensity=10;
+pipeline.grain.animated=true;
+pipeline.imageProcessingEnabled=true;
+pipeline.imageProcessing.contrast=1.2;
+pipeline.imageProcessing.exposure=1.1;
+pipeline.imageProcessing.vignetteEnabled=true;
+pipeline.imageProcessing.vignetteWeight=3;
+pipeline.imageProcessing.vignetteColor=new BABYLON.Color4(0.5,0,0,0);
+
+const glowLayer=new BABYLON.GlowLayer("glow", scene);
+glowLayer.intensity=0.7;
+
+// ---------- SKYBOX ----------
+const skybox=BABYLON.MeshBuilder.CreateBox("skybox", {size:2000}, scene);
+const skyMat=new BABYLON.StandardMaterial("skyMat", scene);
+skyMat.backFaceCulling=false;
+skyMat.disableLighting=true;
+skyMat.emissiveColor=new BABYLON.Color3(0.02,0.02,0.06);
+// Procedural star field via dynamic texture
+const skyTex=new BABYLON.DynamicTexture("skyTex", {width:1024, height:1024}, scene, false);
+const ctx=skyTex.getContext();
+const grad=ctx.createLinearGradient(0,0,0,1024);
+grad.addColorStop(0,'#050510'); grad.addColorStop(0.5,'#0a0a1a'); grad.addColorStop(1,'#150a0a');
+ctx.fillStyle=grad; ctx.fillRect(0,0,1024,1024);
+for(let i=0;i<400;i++){
+  const x=Math.random()*1024, y=Math.random()*600;
+  const r=Math.random()*1.5+0.3;
+  ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.8+0.2})`;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+}
+// Red moon
+ctx.fillStyle='rgba(200,50,50,0.9)';
+ctx.beginPath(); ctx.arc(750,150,70,0,Math.PI*2); ctx.fill();
+ctx.fillStyle='rgba(255,100,100,0.4)';
+ctx.beginPath(); ctx.arc(750,150,90,0,Math.PI*2); ctx.fill();
+skyTex.update();
+skyMat.emissiveTexture=skyTex;
+skyMat.diffuseColor=new BABYLON.Color3(0,0,0);
+skyMat.specularColor=new BABYLON.Color3(0,0,0);
+skybox.material=skyMat;
+skybox.infiniteDistance=true;
+
+// ---------- WORLD ----------
+const WORLD_SIZE=150;
+const boundary={ minX:-WORLD_SIZE, maxX:WORLD_SIZE, minZ:-WORLD_SIZE, maxZ:WORLD_SIZE };
+
+const ground=BABYLON.MeshBuilder.CreateGround('ground', {width:WORLD_SIZE*2, height:WORLD_SIZE*2, subdivisions:2}, scene);
+const groundMat=new BABYLON.PBRMaterial('groundMat', scene);
+groundMat.albedoColor=new BABYLON.Color3(0.06,0.08,0.06);
+groundMat.metallic=0.15; groundMat.roughness=0.85;
+ground.material=groundMat; ground.receiveShadows=true;
+
+// Roads
+const roadMat=new BABYLON.PBRMaterial('roadMat', scene);
+roadMat.albedoColor=new BABYLON.Color3(0.04,0.04,0.05);
+roadMat.metallic=0.4; roadMat.roughness=0.5;
+const road1=BABYLON.MeshBuilder.CreateGround('road1', {width:22, height:WORLD_SIZE*2}, scene);
+road1.position.y=0.02; road1.material=roadMat; road1.receiveShadows=true;
+const road2=BABYLON.MeshBuilder.CreateGround('road2', {width:WORLD_SIZE*2, height:22}, scene);
+road2.position.y=0.02; road2.material=roadMat; road2.receiveShadows=true;
+
+// Buildings
+const buildings=[];
+function createBuilding(x, z){
+  const w=8+Math.random()*14, h=15+Math.random()*40, d=8+Math.random()*14;
+  const b=BABYLON.MeshBuilder.CreateBox('building', {width:w, height:h, depth:d}, scene);
+  b.position=new BABYLON.Vector3(x, h/2, z);
+  const mat=new BABYLON.PBRMaterial('bmat_'+Math.random(), scene);
+  mat.albedoColor=new BABYLON.Color3(0.12+Math.random()*0.08, 0.12, 0.14+Math.random()*0.05);
+  mat.metallic=0.15; mat.roughness=0.85;
+  b.material=mat; b.receiveShadows=true;
+  shadowGen.addShadowCaster(b);
+  b.checkCollisions=true;
+  buildings.push({x, z, r:Math.max(w,d)/2});
+  // Windows
+  const winMat=new BABYLON.StandardMaterial('winMat_'+Math.random(), scene);
+  const lit=Math.random()>0.3;
+  winMat.emissiveColor= lit ? new BABYLON.Color3(0.9,0.75,0.35) : new BABYLON.Color3(0.05,0.05,0.1);
+  winMat.diffuseColor=new BABYLON.Color3(0,0,0);
+  const rows=Math.floor(h/5), cols=Math.floor(w/3.5);
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(Math.random()>0.5) continue;
+      const win=BABYLON.MeshBuilder.CreatePlane('win', {width:1.4, height:2.2}, scene);
+      win.material=winMat;
+      win.position=new BABYLON.Vector3(x+(c-cols/2+0.5)*3.2, 2.5+r*5, z+d/2+0.02);
+    }
+  }
+}
+for(let i=0;i<55;i++){
+  const x=(Math.random()-0.5)*WORLD_SIZE*1.8;
+  const z=(Math.random()-0.5)*WORLD_SIZE*1.8;
+  if(Math.abs(x)<18 && Math.abs(z)<18) continue;
+  if(Math.abs(x)<15 || Math.abs(z)<15) continue; // keep roads clear
+  createBuilding(x,z);
+}
+
+// Streetlights
+const bulbMat=new BABYLON.StandardMaterial('bulbMat', scene);
+bulbMat.emissiveColor=new BABYLON.Color3(1,0.85,0.5);
+const poleMat=new BABYLON.PBRMaterial('poleMat', scene);
+poleMat.albedoColor=new BABYLON.Color3(0.15,0.15,0.18); poleMat.metallic=0.6; poleMat.roughness=0.5;
+const streetLights=[];
+for(let i=0;i<24;i++){
+  const x=(Math.random()-0.5)*WORLD_SIZE*1.5;
+  const z=(Math.random()-0.5)*WORLD_SIZE*1.5;
+  if(Math.abs(x)<18 && Math.abs(z)<18) continue;
+  const pole=BABYLON.MeshBuilder.CreateCylinder('pole', {height:7, diameter:0.35}, scene);
+  pole.position=new BABYLON.Vector3(x, 3.5, z); pole.material=poleMat;
+  const bulb=BABYLON.MeshBuilder.CreateSphere('bulb', {diameter:0.9}, scene);
+  bulb.position=new BABYLON.Vector3(x, 7, z); bulb.material=bulbMat;
+  const pl=new BABYLON.PointLight('pl', new BABYLON.Vector3(x,7,z), scene);
+  pl.intensity=0.7; pl.diffuse=new BABYLON.Color3(1,0.85,0.55); pl.range=25;
+  streetLights.push(pl);
+}
+
+// ---------- WEAPON MODEL ----------
+const gunRoot=new BABYLON.TransformNode('gunRoot', scene);
+gunRoot.parent=camera;
+gunRoot.position=new BABYLON.Vector3(0.35, -0.28, 1.0);
+
+function buildGunMesh(){
+  // Clear existing
+  gunRoot.getChildMeshes().forEach(m=>m.dispose());
+  const w=WEAPONS[state.currentWeapon];
+  const mat=new BABYLON.PBRMaterial('gunMat', scene);
+  mat.albedoColor=new BABYLON.Color3(0.15,0.15,0.18);
+  mat.metallic=0.9; mat.roughness=0.35;
+  const matAccent=new BABYLON.PBRMaterial('gunAccent', scene);
+  matAccent.albedoColor=new BABYLON.Color3(0.6,0.15,0.1);
+  matAccent.metallic=0.5; matAccent.roughness=0.5;
+
+  if(w.id==='pistol'){
+    const body=BABYLON.MeshBuilder.CreateBox('gbody', {width:0.12, height:0.18, depth:0.4}, scene);
+    body.parent=gunRoot; body.material=mat;
+    const grip=BABYLON.MeshBuilder.CreateBox('grip', {width:0.1, height:0.22, depth:0.12}, scene);
+    grip.parent=gunRoot; grip.position=new BABYLON.Vector3(0,-0.2,0.08); grip.rotation.x=-0.3; grip.material=mat;
+    const barrel=BABYLON.MeshBuilder.CreateCylinder('barrel', {height:0.15, diameter:0.05}, scene);
+    barrel.parent=gunRoot; barrel.rotation.x=Math.PI/2; barrel.position=new BABYLON.Vector3(0,0,-0.28); barrel.material=mat;
+  } else if(w.id==='shotgun'){
+    const body=BABYLON.MeshBuilder.CreateBox('gbody', {width:0.14, height:0.2, depth:0.8}, scene);
+    body.parent=gunRoot; body.material=mat;
+    const barrel=BABYLON.MeshBuilder.CreateCylinder('barrel', {height:0.7, diameter:0.08}, scene);
+    barrel.parent=gunRoot; barrel.rotation.x=Math.PI/2; barrel.position=new BABYLON.Vector3(0,0.05,-0.5); barrel.material=mat;
+    const stock=BABYLON.MeshBuilder.CreateBox('stock', {width:0.12, height:0.15, depth:0.3}, scene);
+    stock.parent=gunRoot; stock.position=new BABYLON.Vector3(0,-0.1,0.4); stock.material=matAccent;
+  } else if(w.id==='rifle'){
+    const body=BABYLON.MeshBuilder.CreateBox('gbody', {width:0.14, height:0.2, depth:0.9}, scene);
+    body.parent=gunRoot; body.material=mat;
+    const barrel=BABYLON.MeshBuilder.CreateCylinder('barrel', {height:0.6, diameter:0.06}, scene);
+    barrel.parent=gunRoot; barrel.rotation.x=Math.PI/2; barrel.position=new BABYLON.Vector3(0,0.04,-0.6); barrel.material=mat;
+    const mag=BABYLON.MeshBuilder.CreateBox('mag', {width:0.1, height:0.3, depth:0.16}, scene);
+    mag.parent=gunRoot; mag.position=new BABYLON.Vector3(0,-0.25,-0.05); mag.material=matAccent;
+    const scope=BABYLON.MeshBuilder.CreateBox('scope', {width:0.08, height:0.1, depth:0.25}, scene);
+    scope.parent=gunRoot; scope.position=new BABYLON.Vector3(0,0.18,0); scope.material=mat;
+  } else {
+    const body=BABYLON.MeshBuilder.CreateBox('gbody', {width:0.13, height:0.18, depth:1.2}, scene);
+    body.parent=gunRoot; body.material=mat;
+    const barrel=BABYLON.MeshBuilder.CreateCylinder('barrel', {height:0.9, diameter:0.055}, scene);
+    barrel.parent=gunRoot; barrel.rotation.x=Math.PI/2; barrel.position=new BABYLON.Vector3(0,0.02,-0.8); barrel.material=mat;
+    const scope=BABYLON.MeshBuilder.CreateCylinder('scope', {height:0.35, diameter:0.1}, scene);
+    scope.parent=gunRoot; scope.rotation.x=Math.PI/2; scope.position=new BABYLON.Vector3(0,0.16,0.05); scope.material=matAccent;
+  }
+}
+buildGunMesh();
+
+// Muzzle light
+const muzzleLight=new BABYLON.PointLight('muzzle', new BABYLON.Vector3(0,0,0), scene);
+muzzleLight.parent=camera;
+muzzleLight.position=new BABYLON.Vector3(0.35,-0.28,1.7);
+muzzleLight.intensity=0; muzzleLight.diffuse=new BABYLON.Color3(1,0.8,0.3); muzzleLight.range=15;
+
+// ---------- PARTICLE EFFECTS ----------
+// Blood
+const blood=new BABYLON.ParticleSystem("blood", 300, scene);
+blood.particleTexture=new BABYLON.Texture("https://playground.babylonjs.com/textures/flare.png", scene);
+blood.emitter=BABYLON.Vector3.Zero();
+blood.minEmitBox=new BABYLON.Vector3(-0.1,-0.1,-0.1);
+blood.maxEmitBox=new BABYLON.Vector3(0.1,0.1,0.1);
+blood.color1=new BABYLON.Color4(0.8,0.05,0.05,1);
+blood.color2=new BABYLON.Color4(0.4,0,0,1);
+blood.colorDead=new BABYLON.Color4(0,0,0,0);
+blood.minSize=0.08; blood.maxSize=0.35;
+blood.minLifeTime=0.3; blood.maxLifeTime=0.8;
+blood.emitRate=0;
+blood.blendMode=BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+blood.gravity=new BABYLON.Vector3(0,-12,0);
+blood.direction1=new BABYLON.Vector3(-3,3,-3);
+blood.direction2=new BABYLON.Vector3(3,5,3);
+blood.minEmitPower=1.5; blood.maxEmitPower=4;
+blood.updateSpeed=0.016;
+
+// Muzzle sparks
+const sparks=new BABYLON.ParticleSystem("sparks", 40, scene);
+sparks.particleTexture=new BABYLON.Texture("https://playground.babylonjs.com/textures/flare.png", scene);
+sparks.emitter=gunRoot;
+sparks.minEmitBox=new BABYLON.Vector3(-0.05,-0.05,0.3);
+sparks.maxEmitBox=new BABYLON.Vector3(0.05,0.05,0.4);
+sparks.color1=new BABYLON.Color4(1,0.85,0.3,1);
+sparks.color2=new BABYLON.Color4(1,0.5,0.1,1);
+sparks.colorDead=new BABYLON.Color4(0,0,0,0);
+sparks.minSize=0.06; sparks.maxSize=0.2;
+sparks.minLifeTime=0.05; sparks.maxLifeTime=0.12;
+sparks.emitRate=0;
+sparks.blendMode=BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+sparks.direction1=new BABYLON.Vector3(-0.5,-0.5,3);
+sparks.direction2=new BABYLON.Vector3(0.5,0.5,5);
+sparks.minEmitPower=2; sparks.maxEmitPower=4;
+
+// Impact
+const impacts=new BABYLON.ParticleSystem("impacts", 60, scene);
+impacts.particleTexture=new BABYLON.Texture("https://playground.babylonjs.com/textures/flare.png", scene);
+impacts.emitter=BABYLON.Vector3.Zero();
+impacts.minEmitBox=new BABYLON.Vector3(-0.1,-0.1,-0.1);
+impacts.maxEmitBox=new BABYLON.Vector3(0.1,0.1,0.1);
+impacts.color1=new BABYLON.Color4(1,0.9,0.5,1);
+impacts.color2=new BABYLON.Color4(0.8,0.5,0.2,1);
+impacts.colorDead=new BABYLON.Color4(0,0,0,0);
+impacts.minSize=0.05; impacts.maxSize=0.15;
+impacts.minLifeTime=0.1; impacts.maxLifeTime=0.3;
+impacts.emitRate=0;
+impacts.blendMode=BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+impacts.gravity=new BABYLON.Vector3(0,-20,0);
+impacts.direction1=new BABYLON.Vector3(-2,2,-2);
+impacts.direction2=new BABYLON.Vector3(2,3,2);
+impacts.minEmitPower=1; impacts.maxEmitPower=3;
+
+// ---------- ZOMBIE TEXTURE ----------
+const ZOMBIE_TEXTURE_URL="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRegiF0Re0F0ilD1qXoSN4DQEsH-dQj3mvA8KGLxaIGbA&s=10";
+let zombieTexture=null;
+try{
+  zombieTexture=new BABYLON.Texture(ZOMBIE_TEXTURE_URL, scene, true, false, BABYLON.Texture.TRILINEAR_SAMPLINGMODE,
+    ()=>{}, (msg)=>{ console.warn('Zombie texture failed:', msg); zombieTexture=null; });
+  zombieTexture.crossOrigin='anonymous';
+}catch(e){}
+
+// ---------- ZOMBIE TYPES ----------
+const ZOMBIE_TYPES = {
+  walker: { name:'Walker', hp:1.0, speed:1.0, damage:1.0, scale:1.0, color:new BABYLON.Color3(0.2,0.6,0.25), cash:1.0 },
+  runner: { name:'Runner', hp:0.7, speed:1.9, damage:0.85, scale:0.95, color:new BABYLON.Color3(0.7,0.4,0.15), cash:1.4 },
+  tank:   { name:'Tank',   hp:3.2, speed:0.6, damage:1.8, scale:1.4,  color:new BABYLON.Color3(0.4,0.15,0.4), cash:2.5 },
+  spitter:{ name:'Spitter',hp:1.2, speed:0.85,damage:1.3, scale:1.05, color:new BABYLON.Color3(0.6,0.7,0.1), cash:2.0 },
+  boss:   { name:'BOSS',   hp:25,  speed:0.7, damage:3.0, scale:2.4,  color:new BABYLON.Color3(0.9,0.1,0.1), cash:15  },
+};
+
+function pickZombieType(wave){
+  const r=Math.random();
+  if(wave<3) return 'walker';
+  if(wave<6){
+    if(r<0.75) return 'walker'; return 'runner';
+  }
+  if(wave<10){
+    if(r<0.5) return 'walker';
+    if(r<0.85) return 'runner';
+    return 'spitter';
+  }
+  if(r<0.35) return 'walker';
+  if(r<0.65) return 'runner';
+  if(r<0.85) return 'spitter';
+  return 'tank';
+}
+
+// ---------- ZOMBIE FACTORY ----------
+function createZombie(type='walker', isBoss=false){
+  const t = isBoss ? ZOMBIE_TYPES.boss : ZOMBIE_TYPES[type];
+  const scale = t.scale;
+  const root = new BABYLON.TransformNode('zRoot', scene);
+  const meshes=[];
+  const mat=new BABYLON.PBRMaterial('zmat_'+Math.random(), scene);
+  if(zombieTexture) mat.albedoTexture=zombieTexture;
+  else mat.albedoColor=t.color.clone();
+  mat.metallic=0; mat.roughness=0.85;
+  if(isBoss){ mat.emissiveColor=new BABYLON.Color3(0.4,0,0); }
+  
+  const parts = {
+    torso:[1*scale,1.2*scale,0.6*scale, 0, 1.2*scale, 0],
+    head:[0.8*scale,0.8*scale,0.8*scale, 0, 2.2*scale, 0],
+    armL:[0.35*scale,1.2*scale,0.35*scale, -0.75*scale, 1.3*scale, 0],
+    armR:[0.35*scale,1.2*scale,0.35*scale, 0.75*scale, 1.3*scale, 0],
+    legL:[0.4*scale,1.2*scale,0.4*scale, -0.3*scale, 0.6*scale, 0],
+    legR:[0.4*scale,1.2*scale,0.4*scale, 0.3*scale, 0.6*scale, 0],
+  };
+  for(const [name, p] of Object.entries(parts)){
+    const m=BABYLON.MeshBuilder.CreateBox(name, {width:p[0], height:p[1], depth:p[2]}, scene);
+    m.parent=root; m.position=new BABYLON.Vector3(p[3],p[4],p[5]);
+    m.material=mat; m.receiveShadows=true; shadowGen.addShadowCaster(m);
+    meshes.push(m);
+  }
+  // Arms forward pose
+  meshes[2].rotation.x = -0.7;
+  meshes[3].rotation.x = -0.7;
+
+  // Health bar
+  const hbRoot=new BABYLON.TransformNode('hbRoot', scene);
+  hbRoot.parent=root;
+  hbRoot.position.y = 2.9*scale;
+  const hbBg=BABYLON.MeshBuilder.CreatePlane('hbBg', {width:1.3, height:0.12}, scene);
+  hbBg.parent=hbRoot;
+  hbBg.billboardMode=BABYLON.Mesh.BILLBOARDMODE_ALL;
+  const hbBgMat=new BABYLON.StandardMaterial('hbBgMat', scene);
+  hbBgMat.emissiveColor=new BABYLON.Color3(0.2,0,0); hbBgMat.disableLighting=true;
+  hbBg.material=hbBgMat;
+  const hbFill=BABYLON.MeshBuilder.CreatePlane('hbFill', {width:1.3, height:0.12}, scene);
+  hbFill.parent=hbRoot; hbFill.position.z=-0.01;
+  hbFill.billboardMode=BABYLON.Mesh.BILLBOARDMODE_ALL;
+  const hbFillMat=new BABYLON.StandardMaterial('hbFillMat', scene);
+  hbFillMat.emissiveColor=new BABYLON.Color3(0.9,0.2,0.2); hbFillMat.disableLighting=true;
+  hbFill.material=hbFillMat;
+
+  // Spawn
+  const edge=Math.floor(Math.random()*4);
+  const sr=WORLD_SIZE-5;
+  let x,z;
+  switch(edge){
+    case 0: x=-sr; z=(Math.random()-0.5)*sr*2; break;
+    case 1: x=sr;  z=(Math.random()-0.5)*sr*2; break;
+    case 2: x=(Math.random()-0.5)*sr*2; z=-sr; break;
+    case 3: x=(Math.random()-0.5)*sr*2; z=sr; break;
+  }
+  root.position=new BABYLON.Vector3(x,0,z);
+
+  const baseHp = 30 + state.wave*9;
+  const hp = baseHp * t.hp * (isBoss?1:1);
+  const speed = (0.022 + state.wave*0.0012) * t.speed;
+  const dmg = (8 + state.wave*0.5) * t.damage;
+
+  const zd = {
+    root, meshes, hbFill, hbFillMat,
+    health:hp, maxHealth:hp, speed, isBoss, type,
+    lastAttack:0, attackCooldown:1.0, damage:dmg, scale,
+    walkPhase:Math.random()*Math.PI*2,
+    cashMult:t.cash,
+    spitterCooldown:0,
+  };
+  meshes.forEach(m=>m.metadata=zd);
+  state.zombies.push(zd);
+  return zd;
+}
+
+// ---------- SHOOTING ----------
+function getCurrentWeapon(){ return WEAPONS[state.currentWeapon]; }
+function getCurrentAmmo(){ const w=getCurrentWeapon(); return state.ammo[w.id]; }
+
+function tryReload(){
+  const w=getCurrentWeapon();
+  const ammo=state.ammo[w.id];
+  if(state.reloading) return;
+  if(ammo.mag>=w.mag) return;
+  if(ammo.reserve<=0) return;
+  state.reloading=true;
+  state.reloadEnd=performance.now()/1000 + w.reloadTime;
+  showNotification(`Reloading ${w.name}...`, 800);
+}
+function finishReload(){
+  const w=getCurrentWeapon();
+  const ammo=state.ammo[w.id];
+  const need=w.mag-ammo.mag;
+  const take=Math.min(need, ammo.reserve);
+  ammo.mag+=take; ammo.reserve-=take;
+  state.reloading=false;
+  updateHUD(); saveProgress();
+}
+
+function switchWeapon(idx){
+  if(idx===state.currentWeapon) return;
+  const w=WEAPONS[idx];
+  if(!state.weaponsUnlocked[w.id]){ showNotification(`${w.name} is locked! Buy it in the shop.`, 1500); return; }
+  state.currentWeapon=idx;
+  state.reloading=false;
+  buildGunMesh();
+  updateHUD();
+}
+
+function shoot(){
+  if(state.reloading) return;
+  const w=getCurrentWeapon();
+  const ammo=state.ammo[w.id];
+  const now=performance.now()/1000;
+  if(now-state.lastShot < 1/(w.fireRate*state.fireRateMultiplier)) return;
+  if(ammo.mag<=0){ tryReload(); return; }
+  state.lastShot=now;
+  ammo.mag--;
+  updateHUD();
+
+  // Visual feedback
+  const kick=0.06 + w.damage*0.001;
+  gunRoot.position.z = 1.0 - kick;
+  setTimeout(()=>{ gunRoot.position.z=1.0; }, 45);
+  muzzleLight.intensity=2.5;
+  sparks.emitRate=120;
+  setTimeout(()=>{ muzzleLight.intensity=0; sparks.emitRate=0; }, 45);
+
+  // Screen shake
+  if(settings.screenShake){
+    const shakeAmt = w.damage * 0.008;
+    camera.rotation.x += (Math.random()-0.5)*shakeAmt;
+    camera.rotation.y += (Math.random()-0.5)*shakeAmt;
+  }
+
+  // Fire rays
+  const origin=camera.position;
+  const baseDir=camera.getForwardRay().direction;
+  let totalDamage=0;
+  let anyHit=false;
+  let anyHead=false;
+  let firstHitPoint=null;
+
+  for(let p=0;p<w.pellets;p++){
+    const dir=baseDir.clone();
+    const s=w.spread;
+    dir.x += (Math.random()-0.5)*s;
+    dir.y += (Math.random()-0.5)*s;
+    dir.z += (Math.random()-0.5)*s;
+    dir.normalize();
+
+    const ray=new BABYLON.Ray(origin, dir, w.range);
+    const pick=scene.pickWithRay(ray, m=> m.metadata && m.metadata.health>0);
+
+    if(pick && pick.hit && pick.pickedMesh){
+      const zd=pick.pickedMesh.metadata;
+      if(zd && zd.health>0){
+        const isHead = pick.pickedMesh.name==='head';
+        let dmg = state.baseDamage * state.damageMultiplier * (w.damage/15);
+        if(isHead){ dmg *= w.hsMult; anyHead=true; }
+        zd.health -= dmg;
+        totalDamage += dmg;
+        anyHit=true;
+        if(!firstHitPoint) firstHitPoint=pick.pickedPoint;
+
+        // Damage number
+        const dmgType = isHead ? 'headshot' : (dmg>60?'crit':'normal');
+        spawnDamageNumber(pick.pickedPoint, dmg, dmgType);
+
+        // Blood
+        blood.emitter=pick.pickedPoint;
+        blood.emitRate=180;
+        setTimeout(()=>{ blood.emitRate=0; }, 80);
+
+        if(zd.health<=0) killZombie(zd, isHead);
+      }
+    } else if(pick && pick.hit && pick.pickedMesh && !pick.pickedMesh.metadata){
+      // Wall impact
+      impacts.emitter=pick.pickedPoint;
+      impacts.emitRate=80;
+      setTimeout(()=>{ impacts.emitRate=0; }, 80);
+    }
+  }
+
+  // Hit marker
+  if(anyHit){
+    const hm=document.getElementById('hitMarker');
+    hm.classList.remove('headshot');
+    if(anyHead) hm.classList.add('headshot');
+    hm.classList.add('active');
+    setTimeout(()=>{ hm.classList.remove('active'); hm.classList.remove('headshot'); }, 100);
+    if(anyHead) updateMissionProgress('headshot', 1);
+  }
+}
+
+function killZombie(zd, headshot=false){
+  // Big blood burst
+  blood.emitter=zd.root.position.clone(); blood.emitter.y += 1.2;
+  blood.emitRate=400;
+  setTimeout(()=>{ blood.emitRate=0; }, 200);
+
+  zd.meshes.forEach(m=>m.dispose());
+  zd.hbFill.dispose();
+  zd.root.dispose();
+  const i=state.zombies.indexOf(zd);
+  if(i>-1) state.zombies.splice(i,1);
+
+  state.kills++; state.totalKills++;
+
+  // Combo
+  state.combo++;
+  state.comboTimer = state.comboTimerMax;
+  const comboMult = 1 + state.combo*0.1;
+  document.getElementById('comboNum').textContent = state.combo;
+  document.getElementById('comboMeter').classList.add('active');
+
+  // Rewards
+  const baseCash = zd.isBoss ? 500 : (15 + state.wave*3) * zd.cashMult;
+  const cash = Math.round(baseCash * comboMult * (state.difficulty==='hard'?1.5:1));
+  const exp = Math.round((zd.isBoss ? 200 : 10 + state.wave*2) * (state.difficulty==='hard'?1.5:1));
+  state.cash += cash;
+  addExp(exp);
+
+  addKillFeed(`eliminated <b>${zd.type.toUpperCase()}${zd.isBoss?' BOSS':''}</b>${headshot?' 🎯':''} +$${cash}`, headshot);
+
+  if(zd.isBoss){
+    updateMissionProgress('boss', 1);
+    showNotification(`💀 BOSS DEFEATED! +$${cash} +${exp} EXP`, 3500);
+  }
+  updateMissionProgress('kills', 1);
+  updateHUD(); saveProgress(); checkAchievements(); checkWaveEnd();
+}
+
+// ---------- ZOMBIE AI ----------
+let lastTime=performance.now()/1000;
+function updateZombies(){
+  const now=performance.now()/1000;
+  const dt=Math.min(now-lastTime, 0.1);
+  lastTime=now;
+  const playerPos=camera.position;
+
+  state.zombies.forEach(z=>{
+    if(z.health<=0) return;
+    const dir=playerPos.subtract(z.root.position); dir.y=0;
+    const dist=dir.length();
+    if(dist>0.1){
+      dir.normalize();
+      z.root.position.addInPlace(dir.scale(z.speed * dt * 60));
+    }
+    z.root.lookAt(new BABYLON.Vector3(playerPos.x, z.root.position.y, playerPos.z));
+
+    // Walk animation
+    z.walkPhase += dt * 10;
+    const swing=Math.sin(z.walkPhase) * 0.5;
+    z.meshes[4].rotation.x = swing;
+    z.meshes[5].rotation.x = -swing;
+
+    // Health bar
+    const hpRatio=Math.max(0, z.health/z.maxHealth);
+    z.hbFill.scaling.x = hpRatio;
+    z.hbFill.position.x = -(1-hpRatio)*0.65;
+    if(hpRatio>0.6) z.hbFillMat.emissiveColor=new BABYLON.Color3(0.2,0.9,0.2);
+    else if(hpRatio>0.3) z.hbFillMat.emissiveColor=new BABYLON.Color3(0.9,0.8,0.2);
+    else z.hbFillMat.emissiveColor=new BABYLON.Color3(0.9,0.2,0.2);
+
+    // Attack
+    const attackRange = 2.0*z.scale;
+    if(dist<attackRange && now-z.lastAttack>z.attackCooldown){
+      z.lastAttack=now;
+      // Perks
+      let dmg = z.damage;
+      if(state.perks.juggernaut>0) dmg *= (1 - state.perks.juggernaut*0.15);
+      state.hp -= dmg;
+      flashDamage();
+      if(state.hp<=0){ state.hp=0; gameOver(); }
+      updateHUD();
+    }
+    // Spitter ranged attack
+    if(z.type==='spitter' && dist<15 && dist>3){
+      z.spitterCooldown = (z.spitterCooldown||0) - dt;
+      if(z.spitterCooldown<=0){
+        z.spitterCooldown = 3;
+        // Simple ranged damage
+        let dmg = z.damage*0.6;
+        if(state.perks.juggernaut>0) dmg *= (1 - state.perks.juggernaut*0.15);
+        state.hp -= dmg;
+        flashDamage();
+        if(state.hp<=0){ state.hp=0; gameOver(); }
+        updateHUD();
+      }
+    }
+  });
+}
+
+function flashDamage(){
+  const el=document.getElementById('damageFlash');
+  el.classList.add('active');
+  setTimeout(()=>el.classList.remove('active'), 150);
+}
+
+// ---------- PLAYER MOVEMENT ----------
+function updatePlayerMovement(dt){
+  if(!state.running || state.paused || state.betweenWaves) return;
+  
+  // Crouch
+  const wantCrouch = keys['control'] || keys['c'];
+  state.crouching = wantCrouch;
+  const targetHeight = state.crouching ? 1.0 : 1.7;
+  state.eyeHeight += (targetHeight - state.eyeHeight) * 0.2;
+
+  // Jump / gravity
+  if((keys[' '] || keys['space']) && !state.jumping && !state.crouching){
+    state.velocityY = 0.15; state.jumping=true;
+  }
+  state.velocityY -= 0.012; // gravity
+  state.playerY += state.velocityY;
+  if(state.playerY <= 0){ state.playerY=0; state.velocityY=0; state.jumping=false; }
+  
+  camera.position.y = state.eyeHeight + state.playerY;
+
+  // Stamina / sprint
+  let speedMult = 1;
+  const wantSprint = keys['shift'] && !state.crouching && (keys['w']||keys['s']||keys['a']||keys['d']);
+  if(wantSprint && state.stamina>5){
+    speedMult = 1.6; state.sprinting=true;
+    state.stamina -= 30*dt;
+    if(state.stamina<0) state.stamina=0;
+  } else {
+    state.sprinting=false;
+    state.stamina = Math.min(100, state.stamina + 20*dt);
+  }
+  if(state.crouching) speedMult *= 0.5;
+
+  const speed = state.playerSpeed * speedMult * 0.5;
+  const forward = camera.getDirection(BABYLON.Axis.Z);
+  const right = camera.getDirection(BABYLON.Axis.X);
+  forward.y=0; right.y=0; forward.normalize(); right.normalize();
+  
+  let moved=false;
+  if(keys['w']||keys['arrowup']){ camera.position.addInPlace(forward.scale(speed)); moved=true; }
+  if(keys['s']||keys['arrowdown']){ camera.position.addInPlace(forward.scale(-speed)); moved=true; }
+  if(keys['a']||keys['arrowleft']){ camera.position.addInPlace(right.scale(-speed)); moved=true; }
+  if(keys['d']||keys['arrowright']){ camera.position.addInPlace(right.scale(speed)); moved=true; }
+
+  // Boundary
+  camera.position.x = Math.max(boundary.minX, Math.min(boundary.maxX, camera.position.x));
+  camera.position.z = Math.max(boundary.minZ, Math.min(boundary.maxZ, camera.position.z));
+
+  // Simple building collision
+  buildings.forEach(b=>{
+    const dx=camera.position.x-b.x, dz=camera.position.z-b.z;
+    const d=Math.sqrt(dx*dx+dz*dz);
+    if(d < b.r+0.5){
+      const push=(b.r+0.5-d);
+      camera.position.x += (dx/d)*push;
+      camera.position.z += (dz/d)*push;
+    }
+  });
+
+  // Weapon bob & sway
+  const t=performance.now()/1000;
+  const bob = moved && !state.crouching ? Math.sin(t*10)*0.015*speedMult : 0;
+  const swayX = moved ? Math.sin(t*6)*0.008 : 0;
+  gunRoot.position.x = 0.35 + swayX;
+  gunRoot.position.y = -0.28 + bob;
+  
+  // Stamina bar
+  const sbar=document.getElementById('staminaBar');
+  if(state.stamina<100) sbar.classList.add('active'); else sbar.classList.remove('active');
+  document.getElementById('staminaFill').style.width=state.stamina+'%';
+}
+
+// ---------- WAVE ----------
+function startWave(){
+  state.wave++;
+  if(state.wave>state.bestWave){ state.bestWave=state.wave; }
+  state.waveInProgress=true; state.betweenWaves=false; state.kills=0;
+  updateHUD();
+
+  // Wave modifier (random chance)
+  state.waveModifier=null;
+  const modRoll=Math.random();
+  const modEl=document.getElementById('waveMod');
+  if(state.wave>=5 && modRoll<0.25){
+    const mods=['BLOOD MOON','FRENZY','FOG','DOUBLE CASH'];
+    const pick=mods[Math.floor(Math.random()*mods.length)];
+    state.waveModifier=pick;
+    modEl.textContent=pick; modEl.classList.add('active');
+    if(pick==='DOUBLE CASH') state.cashMultiplier=2; else state.cashMultiplier=1;
+    setTimeout(()=>modEl.classList.remove('active'), 5000);
+  } else {
+    state.cashMultiplier=1;
+  }
+
+  const wave=state.wave;
+  const bossWave = wave%10===0;
+  let baseCount = 4 + Math.floor(wave*1.6);
+  if(state.waveModifier==='FRENZY') baseCount = Math.floor(baseCount*1.6);
+  const count = state.difficulty==='hard' ? Math.floor(baseCount*1.5) : baseCount;
+
+  showWaveBanner(`WAVE ${wave}`, state.waveModifier || `${count} incoming`);
+  showNotification(`Wave ${wave} — ${count} zombies!`, 2000);
+
+  for(let i=0;i<count;i++){
+    setTimeout(()=>{ if(state.running) createZombie(pickZombieType(wave), false); }, i*280);
+  }
+  if(bossWave){
+    setTimeout(()=>{
+      if(!state.running) return;
+      createZombie('boss', true);
+      showNotification('⚠️ BOSS INCOMING ⚠️', 3500);
+      showWaveBanner('BOSS WAVE', 'Defeat the boss for bonus rewards');
+    }, count*280 + 1000);
+  }
+  updateMissionProgress('wave', wave);
+  checkAchievements();
+  saveProgress();
+}
+
+function checkWaveEnd(){
+  if(!state.waveInProgress) return;
+  if(state.zombies.length===0){
+    state.waveInProgress=false; state.betweenWaves=true;
+    const cash=Math.round((60 + state.wave*30) * state.cashMultiplier);
+    const exp=25 + state.wave*12;
+    state.cash+=cash; addExp(exp); saveProgress();
+    showNotification(`✅ Wave ${state.wave} cleared! +$${cash} +${exp} EXP`, 3000);
+    setTimeout(()=>{ if(state.running) openShop(); }, 1500);
+  }
+}
+
+// ---------- SHOP ----------
+function getShopItems(){
+  const tab=state.activeTab;
+  const items=[];
+  if(tab==='upgrades'){
+    items.push(
+      { id:'up_dmg', name:'Damage +5', desc:'Increase base damage', cost:150*state.upgrades.damageLvl, maxed:state.upgrades.damageLvl>=20, apply:()=>{ state.upgrades.damageLvl++; state.baseDamage+=5; } },
+      { id:'up_rate', name:'Fire Rate +10%', desc:'Faster shooting', cost:200*state.upgrades.fireRateLvl, maxed:state.upgrades.fireRateLvl>=15, apply:()=>{ state.upgrades.fireRateLvl++; state.fireRateMultiplier+=0.1; } },
+      { id:'up_hp', name:'Max HP +25', desc:'More health', cost:250*state.upgrades.hpLvl, maxed:state.upgrades.hpLvl>=15, apply:()=>{ state.upgrades.hpLvl++; state.maxHp+=25; state.hp=state.maxHp; } },
+      { id:'up_speed', name:'Speed +0.05', desc:'Move faster', cost:180*state.upgrades.speedLvl, maxed:state.upgrades.speedLvl>=10, apply:()=>{ state.upgrades.speedLvl++; state.playerSpeed+=0.05; } },
+    );
+  } else if(tab==='weapons'){
+    WEAPONS.forEach(w=>{
+      const owned=state.weaponsUnlocked[w.id];
+      if(w.id==='pistol') return;
+      items.push({
+        id:'wpn_'+w.id, name:w.name, desc:`DMG ${w.damage} · ${w.fireRate}/s · Mag ${w.mag}`,
+        cost: w.cost, maxed: owned,
+        apply:()=>{ state.weaponsUnlocked[w.id]=true; showNotification(`Unlocked ${w.name}!`, 2000); }
+      });
+    });
+  } else if(tab==='perks'){
+    items.push(
+      { id:'p_jugg', name:'Juggernaut', desc:`-${(state.perks.juggernaut+1)*15}% damage taken (Lv ${state.perks.juggernaut}/5)`, cost:1500*(state.perks.juggernaut+1), maxed:state.perks.juggernaut>=5, apply:()=>{ state.perks.juggernaut++; } },
+      { id:'p_speed', name:'Speed Cola', desc:`+${(state.perks.speedCola+1)*15}% reload speed (Lv ${state.perks.speedCola}/5)`, cost:1200*(state.perks.speedCola+1), maxed:state.perks.speedCola>=5, apply:()=>{ state.perks.speedCola++; } },
+      { id:'p_dtap', name:'Double Tap', desc:`+${(state.perks.doubleTap+1)*10}% fire rate (Lv ${state.perks.doubleTap}/5)`, cost:1800*(state.perks.doubleTap+1), maxed:state.perks.doubleTap>=5, apply:()=>{ state.perks.doubleTap++; state.fireRateMultiplier+=0.1; } },
+      { id:'p_revive', name:'Quick Revive', desc:`+${(state.perks.quickRevive+1)*10} max HP (Lv ${state.perks.quickRevive}/5)`, cost:1000*(state.perks.quickRevive+1), maxed:state.perks.quickRevive>=5, apply:()=>{ state.perks.quickRevive++; state.maxHp+=10; state.hp=state.maxHp; } },
+    );
+  } else if(tab==='heal'){
+    items.push(
+      { id:'heal_half', name:'Heal 50%', desc:'Restore half of your health', cost:300, maxed:state.hp>=state.maxHp, apply:()=>{ state.hp=Math.min(state.maxHp, state.hp+state.maxHp*0.5); } },
+      { id:'heal_full', name:'Heal Full', desc:'Restore full health', cost:600, maxed:state.hp>=state.maxHp, apply:()=>{ state.hp=state.maxHp; } },
+      { id:'ammo_refill', name:'Refill Ammo', desc:'Refill all reserve ammo', cost:500, maxed:false, apply:()=>{ state.ammo.pistol.reserve=96; state.ammo.shotgun.reserve=48; state.ammo.rifle.reserve=180; state.ammo.sniper.reserve=30; } },
+    );
+  }
+  return items;
+}
+
+function renderShop(){
+  document.getElementById('shopCash').textContent=state.cash;
+  document.getElementById('shopWave').textContent=state.wave;
+  const grid=document.getElementById('shopGrid'); grid.innerHTML='';
+  const items=getShopItems();
+  items.forEach(it=>{
+    const canAfford=state.cash>=it.cost;
+    const d=document.createElement('div'); d.className='shop-item';
+    d.innerHTML=`<h3>${it.name}</h3><div class="desc">${it.desc}</div><div class="cost">${it.maxed?'✓ MAXED':'$'+it.cost}</div>
+      <button class="btn ${it.maxed?'btn-secondary':(canAfford?'btn-success':'btn-secondary')}" ${it.maxed||!canAfford?'disabled':''} data-id="${it.id}">${it.maxed?'Owned':'Buy'}</button>`;
+    grid.appendChild(d);
+  });
+  grid.querySelectorAll('button[data-id]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const it=getShopItems().find(i=>i.id===btn.dataset.id);
+      if(!it||it.maxed) return;
+      if(state.cash<it.cost){ showNotification('Not enough cash!',1500); return; }
+      state.cash-=it.cost; it.apply();
+      saveProgress(); updateHUD(); renderShop();
+      showNotification(`Purchased ${it.name}!`, 1500);
+    });
+  });
+  document.querySelectorAll('.shop-tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab===state.activeTab);
+    t.onclick=()=>{ state.activeTab=t.dataset.tab; renderShop(); };
+  });
+}
+
+function openShop(){ state.betweenWaves=true; renderShop(); document.getElementById('shopOverlay').classList.add('active'); document.exitPointerLock(); }
+function closeShop(){ document.getElementById('shopOverlay').classList.remove('active'); state.betweenWaves=false; }
+
+// ---------- GAME FLOW ----------
+function resetRun(){
+  state.wave=0; state.exp=0; state.maxHp=100; state.hp=100;
+  state.kills=0; state.zombies=[]; state.waveInProgress=false; state.betweenWaves=false;
+  state.baseDamage=10; state.damageMultiplier=1; state.fireRateMultiplier=1; state.cashMultiplier=1;
+  state.upgrades={damageLvl:1, fireRateLvl:1, hpLvl:1, speedLvl:1};
+  state.perks={ juggernaut:0, speedCola:0, doubleTap:0, quickRevive:0 };
+  state.currentWeapon=0;
+  state.ammo={ pistol:{mag:12,reserve:96}, shotgun:{mag:6,reserve:48}, rifle:{mag:30,reserve:180}, sniper:{mag:5,reserve:30} };
+  state.reloading=false;
+  state.combo=0; state.comboTimer=0; state.killStreak=0;
+  state.stamina=100; state.playerY=0; state.velocityY=0; state.eyeHeight=1.7;
+  // Reset unlocks to pistol only
+  state.weaponsUnlocked={ pistol:true, shotgun:false, rifle:false, sniper:false };
+  state.playerSpeed=0.40;
+  // Note: cash is NOT reset (persistent)
+}
+function startGame(difficulty){
+  state.difficulty=difficulty;
+  state.running=true; state.paused=false;
+  resetRun();
+  camera.position=new BABYLON.Vector3(0,1.7,0);
+  camera.rotation=new BABYLON.Vector3(0,0,0);
+  buildGunMesh();
+  // Clear old zombies
+  state.zombies.forEach(z=>{ z.meshes.forEach(m=>m.dispose()); z.hbFill.dispose(); z.root.dispose(); });
+  state.zombies=[];
+  document.getElementById('homeOverlay').classList.remove('active');
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  document.getElementById('shopOverlay').classList.remove('active');
+  updateHUD(); saveProgress();
+  setTimeout(()=>{ if(state.running) startWave(); }, 800);
+  canvas.requestPointerLock();
+}
+function gameOver(){
+  state.running=false; state.paused=true;
+  state.zombies.forEach(z=>{ z.meshes.forEach(m=>m.dispose()); z.hbFill.dispose(); z.root.dispose(); });
+  state.zombies=[];
+  document.getElementById('goWaves').textContent=state.wave;
+  document.getElementById('goKills').textContent=state.totalKills;
+  document.getElementById('goCash').textContent=state.cash;
+  document.getElementById('goExp').textContent=state.exp;
+  document.getElementById('gameOverOverlay').classList.add('active');
+  saveProgress(); updateHUD();
+  if(document.pointerLockElement) document.exitPointerLock();
+}
+function showHomeScreen(){
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('active'));
+  updateHomeStats();
+  document.getElementById('homeOverlay').classList.add('active');
+  state.running=false; state.paused=false;
+  if(document.pointerLockElement) document.exitPointerLock();
+}
+function updateHomeStats(){
+  document.getElementById('homeLevel').textContent=state.level;
+  document.getElementById('homeCash').textContent=state.cash;
+  document.getElementById('homeKills').textContent=state.totalKills;
+  document.getElementById('homeBest').textContent=state.bestWave;
+  const btn=document.getElementById('btnPlayHard');
+  if(state.level>=50){ btn.disabled=false; btn.textContent='▶ PLAY — HARD'; }
+  else{ btn.disabled=true; btn.textContent=`HARD MODE (Lv.50 — You are ${state.level})`; }
+}
+
+function togglePause(){
+  if(!state.running) return;
+  state.paused=!state.paused;
+  if(state.paused){
+    document.getElementById('pauseWave').textContent=state.wave;
+    document.getElementById('pauseKills').textContent=state.kills;
+    document.getElementById('pauseOverlay').classList.add('active');
+    if(document.pointerLockElement) document.exitPointerLock();
+  } else {
+    document.getElementById('pauseOverlay').classList.remove('active');
+    canvas.requestPointerLock();
+  }
+}
+
+// ---------- MINIMAP ----------
+const mmCanvas=document.getElementById('minimapCanvas');
+const mmCtx=mmCanvas.getContext('2d');
+function drawMinimap(){
+  if(!state.running) return;
+  mmCtx.clearRect(0,0,180,180);
+  mmCtx.save();
+  mmCtx.translate(90,90);
+  const scale=90/WORLD_SIZE;
+  const rot=-camera.rotation.y;
+  mmCtx.rotate(rot);
+  // Buildings
+  mmCtx.fillStyle='rgba(80,80,90,0.6)';
+  buildings.forEach(b=>{
+    const dx=(b.x-camera.position.x)*scale, dz=(b.z-camera.position.z)*scale;
+    mmCtx.fillRect(dx-b.r*scale, dz-b.r*scale, b.r*2*scale, b.r*2*scale);
+  });
+  // Zombies
+  state.zombies.forEach(z=>{
+    const dx=(z.root.position.x-camera.position.x)*scale;
+    const dz=(z.root.position.z-camera.position.z)*scale;
+    if(dx*dx+dz*dz>8100) return;
+    mmCtx.fillStyle=z.isBoss?'#f1c40f':'#e74c3c';
+    mmCtx.beginPath(); mmCtx.arc(dx,dz,z.isBoss?5:2.5,0,Math.PI*2); mmCtx.fill();
+  });
+  mmCtx.restore();
+  // Player (center)
+  mmCtx.fillStyle='#2ecc71';
+  mmCtx.beginPath(); mmCtx.arc(90,90,4,0,Math.PI*2); mmCtx.fill();
+  // View cone
+  mmCtx.fillStyle='rgba(46,204,113,0.2)';
+  mmCtx.beginPath(); mmCtx.moveTo(90,90);
+  mmCtx.arc(90,90,40,-Math.PI/2-0.5,-Math.PI/2+0.5); mmCtx.closePath(); mmCtx.fill();
+}
+
+// ---------- MAIN LOOP ----------
+let fpsTime=0, fpsFrames=0;
+engine.runRenderLoop(()=>{
+  const now=performance.now()/1000;
+  const dt=Math.min(now-lastTime, 0.1);
+  
+  if(state.running && !state.paused && !state.betweenWaves){
+    updatePlayerMovement(dt);
+    updateZombies();
+    checkWaveEnd();
+
+    // Auto-reload
+    const w=getCurrentWeapon();
+    const ammo=state.ammo[w.id];
+    if(ammo.mag===0 && !state.reloading && ammo.reserve>0) tryReload();
+    if(state.reloading && now>=state.reloadEnd) finishReload();
+
+    // Auto-fire for automatic weapons
+    if(state.shooting && w.auto) shoot();
+
+    // Combo timer
+    if(state.comboTimer>0){
+      state.comboTimer-=dt;
+      document.getElementById('comboFill').style.width=(state.comboTimer/state.comboTimerMax*100)+'%';
+      if(state.comboTimer<=0){
+        state.combo=0;
+        document.getElementById('comboMeter').classList.remove('active');
+      }
+    }
+  }
+  
+  updateHUD();
+  drawMinimap();
+  scene.render();
+  
+  // FPS
+  fpsFrames++;
+  if(now-fpsTime>0.5){
+    document.getElementById('fps').textContent=Math.round(fpsFrames/(now-fpsTime));
+    fpsTime=now; fpsFrames=0;
+  }
+});
+
+window.addEventListener('resize',()=>engine.resize());
+
+// ---------- INPUT ----------
+scene.onPointerDown=(evt)=>{
+  if(!state.running||state.paused||state.betweenWaves) return;
+  if(evt.button!==0) return;
+  state.shooting=true;
+  shoot();
+};
+scene.onPointerUp=(evt)=>{
+  if(evt.button!==0) return;
+  state.shooting=false;
+};
+
+window.addEventListener('keydown', e=>{
+  const k=e.key.toLowerCase();
+  if(k==='escape'){ togglePause(); }
+  if(!state.running||state.paused) return;
+  if(k==='r') tryReload();
+  if(k==='1') switchWeapon(0);
+  if(k==='2') switchWeapon(1);
+  if(k==='3') switchWeapon(2);
+  if(k==='4') switchWeapon(3);
+  if(k==='e'){ const w=getCurrentWeapon(); switchWeapon((state.currentWeapon+1)%4); }
+});
+
+canvas.addEventListener('click',()=>{
+  if(state.running && !state.paused && !state.betweenWaves){
+    canvas.requestPointerLock();
+  }
+});
+
+// ---------- UI EVENTS ----------
+document.getElementById('btnPlayEasy').addEventListener('click',()=>startGame('easy'));
+document.getElementById('btnPlayHard').addEventListener('click',()=>{ if(state.level>=50) startGame('hard'); });
+document.getElementById('btnHomeMissions').addEventListener('click',()=>{ renderMissions(); document.getElementById('missionOverlay').classList.add('active'); });
+document.getElementById('btnCloseMissions').addEventListener('click',()=>document.getElementById('missionOverlay').classList.remove('active'));
+document.getElementById('btnAchievements').addEventListener('click',()=>{ renderAchievements(); document.getElementById('achievementsOverlay').classList.add('active'); });
+document.getElementById('btnCloseAch').addEventListener('click',()=>document.getElementById('achievementsOverlay').classList.remove('active'));
+document.getElementById('btnSettings').addEventListener('click',()=>{ openSettings(); });
+document.getElementById('btnPauseSettings').addEventListener('click',()=>{ openSettings(); });
+document.getElementById('btnCloseSettings').addEventListener('click',()=>closeSettings());
+document.getElementById('btnNextWave').addEventListener('click',()=>{ closeShop(); setTimeout(()=>{ if(state.running) startWave(); }, 400); });
+document.getElementById('btnMissionsShop').addEventListener('click',()=>{ renderMissions(); document.getElementById('missionOverlay').classList.add('active'); });
+document.getElementById('btnRestart').addEventListener('click', showHomeScreen);
+document.getElementById('btnResume').addEventListener('click', togglePause);
+document.getElementById('btnQuit').addEventListener('click', ()=>{ state.paused=false; showHomeScreen(); });
+
+// Settings
+function openSettings(){
+  document.getElementById('settingsOverlay').classList.add('active');
+  document.getElementById('setSens').value=settings.sensitivity;
+  document.getElementById('valSens').textContent=settings.sensitivity;
+  document.getElementById('setFov').value=settings.fov;
+  document.getElementById('valFov').textContent=settings.fov;
+  document.getElementById('setFps').checked=settings.showFps;
+  document.getElementById('setShake').checked=settings.screenShake;
+}
+function closeSettings(){
+  document.getElementById('settingsOverlay').classList.remove('active');
+  saveSettings();
+}
+document.getElementById('setSens').addEventListener('input', e=>{
+  settings.sensitivity=parseInt(e.target.value);
+  document.getElementById('valSens').textContent=settings.sensitivity;
+  camera.angularSensibilityX=settings.sensitivity;
+  camera.angularSensibilityY=settings.sensitivity;
+});
+document.getElementById('setFov').addEventListener('input', e=>{
+  settings.fov=parseInt(e.target.value);
+  document.getElementById('valFov').textContent=settings.fov;
+  camera.fov=settings.fov*Math.PI/180;
+});
+document.getElementById('setFps').addEventListener('change', e=>{
+  settings.showFps=e.target.checked;
+  document.getElementById('fpsCounter').classList.toggle('active', settings.showFps);
+});
+document.getElementById('setShake').addEventListener('change', e=>{
+  settings.screenShake=e.target.checked;
+});
+
+// ---------- INIT ----------
+loadProgress();
+initMissions();
+updateHomeStats();
+updateHUD();
+renderMissions();
+document.getElementById('fpsCounter').classList.toggle('active', settings.showFps);
+document.getElementById('homeOverlay').classList.add('active');
+console.log('Zombie Attack Ultimate loaded. Level:', state.level, 'Cash:', state.cash, 'Best Wave:', state.bestWave);
+</script>
+</body>
+</html>
